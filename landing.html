@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SiteGuard — Real-Time Website Health Monitor</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #0f1117;
+      --bg2:        #13161f;
+      --surface:    #1a1d27;
+      --surface2:   #20243a;
+      --border:     #2a2d3e;
+      --text:       #e2e8f0;
+      --text-dim:   #8892a8;
+      --red:        #fc8181;
+      --orange:     #f6ad55;
+      --green:      #68d391;
+      --blue:       #63b3ed;
+      --blue2:      #4299e1;
+      --purple:     #b794f4;
+      --radius:     12px;
+      --radius-sm:  8px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 48px;
+      background: rgba(15, 17, 23, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--text);
+      text-decoration: none;
+    }
+    .nav-logo .shield { font-size: 1.5rem; }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      list-style: none;
+    }
+    .nav-links a {
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 0.9rem;
+      transition: color .2s;
+    }
+    .nav-links a:hover { color: var(--text); }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 20px;
+      border-radius: var(--radius-sm);
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      border: none;
+      transition: opacity .2s, transform .1s;
+    }
+    .btn:hover { opacity: .85; transform: translateY(-1px); }
+    .btn-primary { background: var(--blue2); color: #fff; }
+    .btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
+    .btn-ghost:hover { color: var(--text); border-color: var(--text-dim); }
+
+    /* ── HERO ── */
+    .hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 100px 24px 80px;
+      gap: 24px;
+      position: relative;
+    }
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 900px;
+      height: 500px;
+      background: radial-gradient(ellipse at center, rgba(99,179,237,.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 14px;
+      background: rgba(99,179,237,.1);
+      border: 1px solid rgba(99,179,237,.25);
+      border-radius: 999px;
+      font-size: 0.8rem;
+      color: var(--blue);
+      font-weight: 500;
+    }
+
+    h1 {
+      font-size: clamp(2.2rem, 5vw, 3.5rem);
+      font-weight: 800;
+      line-height: 1.15;
+      max-width: 700px;
+    }
+    h1 span { color: var(--blue); }
+
+    .hero-sub {
+      color: var(--text-dim);
+      font-size: 1.1rem;
+      max-width: 520px;
+    }
+
+    .hero-ctas {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .hero-stats {
+      display: flex;
+      gap: 40px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 12px;
+    }
+    .hero-stat { text-align: center; }
+    .hero-stat .val {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .hero-stat .lbl {
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+
+    /* ── DASHBOARD PREVIEW ── */
+    .preview-wrapper {
+      padding: 0 24px 80px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .dashboard-frame {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      width: 100%;
+      max-width: 900px;
+      overflow: hidden;
+      box-shadow: 0 32px 80px rgba(0,0,0,.5);
+    }
+
+    /* title bar */
+    .frame-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 20px;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+    }
+    .dot { width: 12px; height: 12px; border-radius: 50%; }
+    .dot-red { background: #ff5f57; }
+    .dot-yellow { background: #febc2e; }
+    .dot-green { background: #28c840; }
+    .frame-bar-title {
+      flex: 1;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
+
+    /* inner dash layout */
+    .dash-inner {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      min-height: 480px;
+    }
+
+    /* sidebar */
+    .dash-sidebar {
+      background: var(--bg2);
+      border-right: 1px solid var(--border);
+      padding: 20px 0;
+    }
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 20px 20px;
+      font-weight: 700;
+      font-size: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-logo .dot-live {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+      animation: pulse 2s infinite;
+      margin-left: auto;
+    }
+    .sidebar-section {
+      padding: 14px 20px 6px;
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--text-dim);
+    }
+    .sidebar-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 20px;
+      font-size: 0.83rem;
+      color: var(--text-dim);
+      cursor: pointer;
+    }
+    .sidebar-item.active {
+      background: rgba(99,179,237,.1);
+      color: var(--blue);
+      border-right: 2px solid var(--blue);
+    }
+    .sidebar-item .icon { font-size: 0.9rem; width: 16px; text-align: center; }
+
+    .status-chip {
+      margin-left: auto;
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-size: 0.65rem;
+      font-weight: 700;
+    }
+    .chip-up   { background: rgba(104,211,145,.15); color: var(--green); }
+    .chip-warn { background: rgba(246,173,85,.15);  color: var(--orange); }
+    .chip-down { background: rgba(252,129,129,.15); color: var(--red); }
+
+    /* main content */
+    .dash-main {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      overflow: hidden;
+    }
+
+    .dash-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .dash-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+    .dash-meta {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      margin-top: 2px;
+    }
+    .badge-up {
+      padding: 4px 12px;
+      border-radius: 999px;
+      background: rgba(104,211,145,.15);
+      color: var(--green);
+      font-weight: 700;
+      font-size: 0.82rem;
+      border: 1px solid rgba(104,211,145,.3);
+    }
+
+    /* metric grid */
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    .metric-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+    }
+    .metric-card.warn { border-color: rgba(246,173,85,.4); }
+    .metric-card.ok   { border-color: rgba(104,211,145,.25); }
+    .metric-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+    }
+    .metric-value {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .metric-card.warn .metric-value { color: var(--orange); }
+    .metric-card.ok   .metric-value { color: var(--green); }
+
+    /* alerts */
+    .section-heading {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--text-dim);
+      margin-bottom: 10px;
+    }
+    .alert-list { display: flex; flex-direction: column; gap: 8px; }
+    .alert-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-left: 3px solid;
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-size: 0.8rem;
+    }
+    .alert-item.ok     { border-left-color: var(--green); }
+    .alert-item.warn   { border-left-color: var(--orange); }
+    .alert-item.crit   { border-left-color: var(--red); }
+    .alert-msg { flex: 1; color: var(--text-dim); }
+    .alert-msg strong { color: var(--text); }
+    .alert-time { color: var(--text-dim); font-size: 0.72rem; white-space: nowrap; }
+
+    /* ── FEATURES ── */
+    section { padding: 80px 24px; }
+    .section-inner { max-width: 1100px; margin: 0 auto; }
+
+    .section-tag {
+      display: inline-block;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--blue);
+      margin-bottom: 12px;
+    }
+
+    h2 {
+      font-size: clamp(1.6rem, 3vw, 2.2rem);
+      font-weight: 700;
+      margin-bottom: 14px;
+    }
+    .section-desc {
+      color: var(--text-dim);
+      max-width: 540px;
+      margin-bottom: 48px;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      transition: border-color .2s, transform .2s;
+    }
+    .feature-card:hover {
+      border-color: rgba(99,179,237,.35);
+      transform: translateY(-3px);
+    }
+    .feature-icon {
+      font-size: 1.8rem;
+      margin-bottom: 16px;
+    }
+    .feature-card h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .feature-card p { color: var(--text-dim); font-size: 0.875rem; }
+
+    /* ── METRICS TABLE ── */
+    .metrics-section { background: var(--bg2); }
+
+    .metrics-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+    .mcard {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+    }
+    .mcard-icon { font-size: 1.5rem; margin-bottom: 10px; }
+    .mcard-name {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      color: var(--text-dim);
+      margin-bottom: 4px;
+    }
+    .mcard-full { font-size: 0.9rem; font-weight: 600; margin-bottom: 6px; }
+    .mcard-threshold {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+    .mcard-threshold span { color: var(--orange); font-weight: 600; }
+
+    /* ── HOW IT WORKS ── */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 0;
+      position: relative;
+    }
+    .steps::before {
+      content: "";
+      position: absolute;
+      top: 28px;
+      left: 10%;
+      width: 80%;
+      height: 1px;
+      background: var(--border);
+    }
+    .step {
+      position: relative;
+      padding: 0 16px;
+      text-align: center;
+    }
+    .step-num {
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      background: var(--surface);
+      border: 2px solid var(--blue2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 1.2rem;
+      color: var(--blue);
+      margin: 0 auto 18px;
+      position: relative;
+      z-index: 1;
+    }
+    .step h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 8px; }
+    .step p { color: var(--text-dim); font-size: 0.82rem; }
+
+    /* ── THRESHOLDS DEMO ── */
+    .thresholds-demo {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      max-width: 560px;
+    }
+    .threshold-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .threshold-row:last-child { border-bottom: none; }
+    .thr-name {
+      font-size: 0.85rem;
+      font-weight: 600;
+      width: 100px;
+    }
+    .thr-bar-wrap { flex: 1; height: 6px; background: var(--border); border-radius: 3px; }
+    .thr-bar { height: 100%; border-radius: 3px; transition: width .3s; }
+    .thr-bar.ok     { background: var(--green); }
+    .thr-bar.warn   { background: var(--orange); }
+    .thr-bar.crit   { background: var(--red); }
+    .thr-val {
+      font-size: 0.8rem;
+      font-weight: 700;
+      width: 60px;
+      text-align: right;
+    }
+
+    /* ── CTA ── */
+    .cta-section {
+      text-align: center;
+      padding: 100px 24px;
+      position: relative;
+    }
+    .cta-section::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at center, rgba(99,179,237,.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .cta-section h2 { margin-bottom: 16px; }
+    .cta-section p { color: var(--text-dim); margin-bottom: 36px; }
+    .cta-section .hero-ctas { justify-content: center; }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 32px 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .footer-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.875rem;
+      color: var(--text-dim);
+    }
+    .footer-right { font-size: 0.8rem; color: var(--text-dim); }
+
+    /* ── ANIMATIONS ── */
+    @keyframes pulse {
+      0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--green); }
+      50%       { opacity: .5; box-shadow: 0 0 12px var(--green); }
+    }
+
+    /* counter animation */
+    .counter { display: inline-block; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      nav { padding: 14px 20px; }
+      .nav-links { display: none; }
+      .dash-inner { grid-template-columns: 1fr; }
+      .dash-sidebar { display: none; }
+      .metric-grid { grid-template-columns: repeat(2, 1fr); }
+      .steps::before { display: none; }
+      footer { padding: 24px 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── NAV ── -->
+<nav>
+  <a href="#" class="nav-logo">
+    <span class="shield">🛡️</span>
+    SiteGuard
+  </a>
+  <ul class="nav-links">
+    <li><a href="#features">Features</a></li>
+    <li><a href="#metrics">Metrics</a></li>
+    <li><a href="#how">How It Works</a></li>
+  </ul>
+  <a href="#" class="btn btn-primary">Add to Chrome</a>
+</nav>
+
+<!-- ── HERO ── -->
+<section class="hero">
+  <div class="hero-badge">
+    <span>✦</span> Real-Time Website Monitoring
+  </div>
+  <h1>Your site's health,<br /><span>always in sight</span></h1>
+  <p class="hero-sub">
+    SiteGuard monitors every page you visit — tracking Web Vitals, HTTP errors,
+    outages, and JS crashes — right from your browser.
+  </p>
+  <div class="hero-ctas">
+    <a href="#" class="btn btn-primary">⬇ Install Extension</a>
+    <a href="#features" class="btn btn-ghost">Learn more</a>
+  </div>
+  <div class="hero-stats">
+    <div class="hero-stat">
+      <div class="val counter" data-target="7">0</div>
+      <div class="lbl">Metrics tracked</div>
+    </div>
+    <div class="hero-stat">
+      <div class="val counter" data-target="4">0</div>
+      <div class="lbl">Error types caught</div>
+    </div>
+    <div class="hero-stat">
+      <div class="val">0ms</div>
+      <div class="lbl">Setup overhead</div>
+    </div>
+    <div class="hero-stat">
+      <div class="val">MV3</div>
+      <div class="lbl">Manifest version</div>
+    </div>
+  </div>
+</section>
+
+<!-- ── DASHBOARD PREVIEW ── -->
+<div class="preview-wrapper">
+  <div class="dashboard-frame">
+    <div class="frame-bar">
+      <div class="dot dot-red"></div>
+      <div class="dot dot-yellow"></div>
+      <div class="dot dot-green"></div>
+      <div class="frame-bar-title">SiteGuard — Dashboard</div>
+    </div>
+
+    <div class="dash-inner">
+      <!-- sidebar -->
+      <div class="dash-sidebar">
+        <div class="sidebar-logo">
+          🛡️ SiteGuard
+          <div class="dot-live"></div>
+        </div>
+
+        <div class="sidebar-section">Monitored Sites</div>
+        <div class="sidebar-item active">
+          <span class="icon">🌐</span> skat.dk
+          <span class="status-chip chip-up">UP</span>
+        </div>
+        <div class="sidebar-item">
+          <span class="icon">🌐</span> github.com
+          <span class="status-chip chip-up">UP</span>
+        </div>
+        <div class="sidebar-item">
+          <span class="icon">🌐</span> stripe.com
+          <span class="status-chip chip-warn">WARN</span>
+        </div>
+        <div class="sidebar-item">
+          <span class="icon">🌐</span> api.acme.io
+          <span class="status-chip chip-down">DOWN</span>
+        </div>
+
+        <div class="sidebar-section">Views</div>
+        <div class="sidebar-item">
+          <span class="icon">📊</span> Overview
+        </div>
+        <div class="sidebar-item">
+          <span class="icon">⚠️</span> Errors
+        </div>
+        <div class="sidebar-item">
+          <span class="icon">📈</span> Metrics
+        </div>
+        <div class="sidebar-item">
+          <span class="icon">⚙️</span> Settings
+        </div>
+      </div>
+
+      <!-- main -->
+      <div class="dash-main">
+        <div class="dash-header">
+          <div>
+            <div class="dash-title">skat.dk</div>
+            <div class="dash-meta">Last checked 1s ago · 46 requests</div>
+          </div>
+          <div class="badge-up">● UP</div>
+        </div>
+
+        <!-- metrics -->
+        <div class="metric-grid">
+          <div class="metric-card ok">
+            <div class="metric-label">Load Time</div>
+            <div class="metric-value">828ms</div>
+          </div>
+          <div class="metric-card ok">
+            <div class="metric-label">TTFB</div>
+            <div class="metric-value">114ms</div>
+          </div>
+          <div class="metric-card ok">
+            <div class="metric-label">FCP</div>
+            <div class="metric-value">568ms</div>
+          </div>
+          <div class="metric-card ok">
+            <div class="metric-label">LCP</div>
+            <div class="metric-value">700ms</div>
+          </div>
+        </div>
+
+        <!-- alerts -->
+        <div>
+          <div class="section-heading">Recent Alerts</div>
+          <div class="alert-list">
+            <div class="alert-item ok">
+              <span>🟢</span>
+              <div class="alert-msg"><strong>Site recovered</strong> — back online after brief disruption</div>
+              <div class="alert-time">2m ago</div>
+            </div>
+            <div class="alert-item warn">
+              <span>🟡</span>
+              <div class="alert-msg"><strong>LCP breach</strong> — 3.1s exceeded 2.5s threshold</div>
+              <div class="alert-time">8m ago</div>
+            </div>
+            <div class="alert-item crit">
+              <span>🔴</span>
+              <div class="alert-msg"><strong>3× 5xx errors</strong> — outage detected on /api/v2/users</div>
+              <div class="alert-time">12m ago</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── FEATURES ── -->
+<section id="features">
+  <div class="section-inner">
+    <div class="section-tag">Features</div>
+    <h2>Everything you need to<br />monitor site health</h2>
+    <p class="section-desc">
+      SiteGuard works silently in the background, tracking the performance
+      and reliability of every site you visit.
+    </p>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <h3>Core Web Vitals</h3>
+        <p>Tracks LCP, FCP, CLS, FID, TTFB and page load time in real time using the browser's native Performance APIs.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔴</div>
+        <h3>Outage Detection</h3>
+        <p>Automatically detects site outages when 3 or more consecutive HTTP 5xx errors are observed — with automatic recovery detection.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🐛</div>
+        <h3>JS Error Tracking</h3>
+        <p>Captures uncaught JavaScript exceptions and unhandled promise rejections with file, line, and column details.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🌐</div>
+        <h3>Network Monitoring</h3>
+        <p>Intercepts fetch() and XMLHttpRequest calls to catch failed API requests, with URL, status code, and duration logged.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔔</div>
+        <h3>Smart Alerts</h3>
+        <p>Color-coded alerts (critical / warning / info) with a 60-second cooldown to prevent notification spam.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⚙️</div>
+        <h3>Custom Thresholds</h3>
+        <p>Set your own performance budgets for every metric. SiteGuard flags breaches in real time against your thresholds.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── METRICS ── -->
+<section id="metrics" class="metrics-section">
+  <div class="section-inner">
+    <div class="section-tag">Metrics</div>
+    <h2>7 metrics, zero config needed</h2>
+    <p class="section-desc">
+      SiteGuard ships with sensible defaults. Every threshold is adjustable in the Settings panel.
+    </p>
+
+    <div class="metrics-cards">
+      <div class="mcard">
+        <div class="mcard-icon">⏱️</div>
+        <div class="mcard-name">loadTime</div>
+        <div class="mcard-full">Page Load Time</div>
+        <div class="mcard-threshold">Default threshold: <span>3 000ms</span></div>
+      </div>
+      <div class="mcard">
+        <div class="mcard-icon">🚀</div>
+        <div class="mcard-name">TTFB</div>
+        <div class="mcard-full">Time To First Byte</div>
+        <div class="mcard-threshold">Default threshold: <span>800ms</span></div>
+      </div>
+      <div class="mcard">
+        <div class="mcard-icon">🖼️</div>
+        <div class="mcard-name">FCP</div>
+        <div class="mcard-full">First Contentful Paint</div>
+        <div class="mcard-threshold">Default threshold: <span>1 800ms</span></div>
+      </div>
+      <div class="mcard">
+        <div class="mcard-icon">🎯</div>
+        <div class="mcard-name">LCP</div>
+        <div class="mcard-full">Largest Contentful Paint</div>
+        <div class="mcard-threshold">Default threshold: <span>2 500ms</span></div>
+      </div>
+      <div class="mcard">
+        <div class="mcard-icon">📐</div>
+        <div class="mcard-name">CLS</div>
+        <div class="mcard-full">Cumulative Layout Shift</div>
+        <div class="mcard-threshold">Default threshold: <span>0.1</span></div>
+      </div>
+      <div class="mcard">
+        <div class="mcard-icon">👆</div>
+        <div class="mcard-name">FID</div>
+        <div class="mcard-full">First Input Delay</div>
+        <div class="mcard-threshold">Captured when present</div>
+      </div>
+      <div class="mcard">
+        <div class="mcard-icon">📡</div>
+        <div class="mcard-name">responseTime</div>
+        <div class="mcard-full">HTTP Response Time</div>
+        <div class="mcard-threshold">Default threshold: <span>5 000ms</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── HOW IT WORKS ── -->
+<section id="how">
+  <div class="section-inner">
+    <div class="section-tag">How It Works</div>
+    <h2>Up and running in seconds</h2>
+    <p class="section-desc">
+      Three layers work together to give you full coverage with no backend required.
+    </p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3>Install the extension</h3>
+        <p>Add SiteGuard to Chrome. No account, no server, no API key needed.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3>Browse normally</h3>
+        <p>The background service worker intercepts HTTP responses and the content scripts collect Web Vitals automatically.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3>Get instant alerts</h3>
+        <p>The extension badge turns red on critical issues. Open the popup to see the full dashboard for the current site.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <h3>Tune thresholds</h3>
+        <p>Adjust every performance budget in the Settings tab. SiteGuard saves your config locally in Chrome storage.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── LIVE THRESHOLD DEMO ── -->
+<section style="background: var(--bg2);">
+  <div class="section-inner" style="display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center;">
+    <div>
+      <div class="section-tag">Settings</div>
+      <h2>Configurable performance budgets</h2>
+      <p class="section-desc" style="margin-bottom: 0;">
+        Every metric has a threshold you control. SiteGuard compares live values against your budgets
+        and alerts you the moment a breach occurs.
+      </p>
+    </div>
+
+    <div class="thresholds-demo">
+      <div class="threshold-row">
+        <div class="thr-name">Load Time</div>
+        <div class="thr-bar-wrap"><div class="thr-bar ok" style="width:28%"></div></div>
+        <div class="thr-val" style="color:var(--green)">828ms</div>
+      </div>
+      <div class="threshold-row">
+        <div class="thr-name">TTFB</div>
+        <div class="thr-bar-wrap"><div class="thr-bar ok" style="width:14%"></div></div>
+        <div class="thr-val" style="color:var(--green)">114ms</div>
+      </div>
+      <div class="threshold-row">
+        <div class="thr-name">FCP</div>
+        <div class="thr-bar-wrap"><div class="thr-bar ok" style="width:32%"></div></div>
+        <div class="thr-val" style="color:var(--green)">568ms</div>
+      </div>
+      <div class="threshold-row">
+        <div class="thr-name">LCP</div>
+        <div class="thr-bar-wrap"><div class="thr-bar ok" style="width:28%"></div></div>
+        <div class="thr-val" style="color:var(--green)">700ms</div>
+      </div>
+      <div class="threshold-row">
+        <div class="thr-name">CLS</div>
+        <div class="thr-bar-wrap"><div class="thr-bar warn" style="width:72%"></div></div>
+        <div class="thr-val" style="color:var(--orange)">0.072</div>
+      </div>
+      <div class="threshold-row">
+        <div class="thr-name">Error Rate</div>
+        <div class="thr-bar-wrap"><div class="thr-bar crit" style="width:90%"></div></div>
+        <div class="thr-val" style="color:var(--red)">4.5%</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA ── -->
+<section class="cta-section">
+  <div class="section-tag">Get Started</div>
+  <h2>Start monitoring in seconds</h2>
+  <p>No sign-up. No server. Everything stays in your browser.</p>
+  <div class="hero-ctas">
+    <a href="#" class="btn btn-primary">⬇ Add to Chrome — it's free</a>
+  </div>
+</section>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div class="footer-left">
+    <span>🛡️</span>
+    <span>SiteGuard — Browser performance &amp; health monitor</span>
+  </div>
+  <div class="footer-right">Manifest V3 · Chrome Extension</div>
+</footer>
+
+<script>
+  // Counter animation
+  function animateCounter(el) {
+    const target = parseInt(el.dataset.target, 10);
+    let current = 0;
+    const step = Math.ceil(target / 20);
+    const timer = setInterval(() => {
+      current = Math.min(current + step, target);
+      el.textContent = current;
+      if (current >= target) clearInterval(timer);
+    }, 60);
+  }
+
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        animateCounter(e.target);
+        obs.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.5 });
+
+  document.querySelectorAll('.counter[data-target]').forEach(el => obs.observe(el));
+
+  // Subtle metric value pulse in the dashboard preview
+  const vals = document.querySelectorAll('.metric-value');
+  setInterval(() => {
+    const pick = vals[Math.floor(Math.random() * vals.length)];
+    pick.style.transition = 'opacity .2s';
+    pick.style.opacity = '0.4';
+    setTimeout(() => { pick.style.opacity = '1'; }, 220);
+  }, 2800);
+</script>
+</body>
+</html>
